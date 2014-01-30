@@ -27,7 +27,7 @@ if (Meteor.isServer) {
     // Publication
     Meteor.publish('serverTime', function() {
 
-       var randomID = Math.round(Math.random() * 10000);
+       var randomID = Math.round(Math.random() * 10000000000000);
 
        // 'this' inside publish function is the subscription object for each particular subscribed client
        var subscription = this;
