@@ -1,0 +1,14 @@
+<head>
+  <title>Demo: Pushing date from server to a client-only collection</title>
+</head>
+
+<body>
+</body>
+
+<template name="home">
+    <h3>Current server time is:</h3>
+    {{#with getServerTime}}
+    <strong>{{hour}}:{{minute}}:{{second}}</strong>
+    {{/with}}
+</template>
+
