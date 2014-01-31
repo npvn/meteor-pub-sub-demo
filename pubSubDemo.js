@@ -1,8 +1,8 @@
 if (Meteor.isClient) {
 
     Meteor.subscribe('serverTime', function() {
-        // onReady callback
-        document.body.appendChild(Meteor.render(Template.home));
+        // onReady callback: render 'home' template
+        Handlebars._default_helpers.renderHome();
     });
 
     var Time = new Meteor.Collection('time');
@@ -15,82 +15,60 @@ if (Meteor.isClient) {
         return {hour: hh, minute: mm, second: ss};
     });
 
+    Handlebars.registerHelper('renderHome', function() {
+        document.body.appendChild(Meteor.render(Template.home));
+    });
+
 }
 
 
 
 if (Meteor.isServer) {
 
+
     // Current active client subscriptions
     var activeSubscriptions = { };
+
 
     // Publication
     Meteor.publish('serverTime', function() {
 
-       var randomID = Math.round(Math.random() * 10000000000000);
+       var randomID = Random.id();
 
        // 'this' inside publish function is the subscription object for each particular subscribed client
        var subscription = this;
 
        // Each time a new client subscribe, store the subscription object for later management
-       subscription._documentID = randomID; // save this for using changed() method later
+       subscription._documentID = randomID;
        activeSubscriptions[subscription._session.id] = subscription;
 
        // Push initial time value to client
-       var initialTime = getTime();
-       subscription.added('time', randomID, {
-           hour: initialTime[0],
-           minute: initialTime[1],
-           second: initialTime[2]
-       });
+       subscription.added('time', randomID, getTime());
+
        // Trigger subscriber's onReady callback
        subscription.ready();
 
-       // Push new time to client every second
-       var pushInterval = Meteor.setInterval(function() {
-
-           /* This approach of using activeSubscriptions is for demonstrative purpose only
-            * A leaner approach is commented below */
-           for (var subscriptionID in activeSubscriptions) {
-               var subscription = activeSubscriptions[subscriptionID];
-               var newTime = getTime();
-               subscription.changed('time', subscription._documentID, {
-                   hour: newTime[0],
-                   minute: newTime[1],
-                   second: newTime[2]
-               });
-               // Trigger subscriber's onReady callback
-               subscription.ready();
-           }
-
-
-           /*** Leaner way ***/
-           /*var newTime = getTime();
-           subscription.changed('time', randomID, {
-               hour: newTime[0],
-               minute: newTime[1],
-               second: newTime[2]
-           });
-           // Trigger subscriber's onReady callback
-           subscription.ready();*/
-
-       }, 1000);
-
-
-       // Remove the subscription and clear pushing interval on client disconnect
+       // Remove the subscription on client disconnect
        subscription.onStop(function() {
           delete activeSubscriptions[subscription._session.id];
-          Meteor.clearInterval(pushInterval);
        });
 
     });
 
 
+    // Publish new server time to all active subscribers every one second
+    Meteor.setInterval(function() {
+        for (var subscriptionID in activeSubscriptions) {
+            var subscription = activeSubscriptions[subscriptionID];
+            subscription.changed('time', subscription._documentID, getTime());
+        }
+    }, 1000);
+
+
+    // Generate new server time
     getTime = function() {
         var d = new Date();
-        return [ d.getHours(), d.getMinutes(), d.getSeconds() ];
+        return { hour: d.getHours(), minute: d.getMinutes(), second: d.getSeconds() };
     };
 
 }
-
-
