@@ -1,8 +1,8 @@
 if (Meteor.isClient) {
 
     Meteor.subscribe('serverTime', function() {
-        // onReady callback: render 'home' template
-        Handlebars._default_helpers.renderHome();
+        // onReady callback: trigger 'home' template rendering
+        Session.set('subscriptionIsReady', true);
     });
 
     var Time = new Meteor.Collection('time');
@@ -15,8 +15,8 @@ if (Meteor.isClient) {
         return {hour: hh, minute: mm, second: ss};
     });
 
-    Handlebars.registerHelper('renderHome', function() {
-        document.body.appendChild(Meteor.render(Template.home));
+    Handlebars.registerHelper('subscriptionIsReady', function() {
+        return Session.get('subscriptionIsReady');
     });
 
 }
@@ -33,17 +33,14 @@ if (Meteor.isServer) {
     // Publication
     Meteor.publish('serverTime', function() {
 
-       var randomID = Random.id();
-
        // 'this' inside publish function is the subscription object for each particular subscribed client
        var subscription = this;
 
        // Each time a new client subscribe, store the subscription object for later management
-       subscription._documentID = randomID;
        activeSubscriptions[subscription._session.id] = subscription;
 
        // Push initial time value to client
-       subscription.added('time', randomID, getTime());
+       subscription.added('time', 'not_a_random_id', getTime());
 
        // Trigger subscriber's onReady callback
        subscription.ready();
@@ -60,7 +57,7 @@ if (Meteor.isServer) {
     Meteor.setInterval(function() {
         for (var subscriptionID in activeSubscriptions) {
             var subscription = activeSubscriptions[subscriptionID];
-            subscription.changed('time', subscription._documentID, getTime());
+            subscription.changed('time', 'not_a_random_id', getTime());
         }
     }, 1000);
 
