@@ -1,22 +1,22 @@
 if (Meteor.isClient) {
 
-    Meteor.subscribe('serverTime', function() {
-        // onReady callback: trigger 'home' template rendering
-        Session.set('subscriptionIsReady', true);
-    });
+    Meteor.subscribe('serverTime');
 
-    var Time = new Meteor.Collection('time');
+    var Time = new Meteor.Collection('time', {
+        // Return a nicely formatted object containing server time
+        transform: function(doc) {
+            var serverTime = doc.date;
+            // We assume that server time is a standard UTC value (offset = 0)
+            var hh = serverTime.getUTCHours() >= 10 ? serverTime.getUTCHours() : '0' + serverTime.getUTCHours().toString();
+            var mm = serverTime.getUTCMinutes() >= 10 ? serverTime.getUTCMinutes() : '0' + serverTime.getUTCMinutes().toString();
+            var ss = serverTime.getUTCSeconds() >= 10 ? serverTime.getUTCSeconds() : '0' + serverTime.getUTCSeconds().toString();
+            return {hour: hh, minute: mm, second: ss};
+        }
+    });
 
     Handlebars.registerHelper('getServerTime', function() {
-        var serverTime = Time.findOne();
-        var hh = serverTime.hour >= 10 ? serverTime.hour : '0' + serverTime.hour.toString();
-        var mm = serverTime.minute >= 10 ? serverTime.minute : '0' + serverTime.minute.toString();
-        var ss = serverTime.second >= 10 ? serverTime.second : '0' + serverTime.second.toString();
-        return {hour: hh, minute: mm, second: ss};
-    });
-
-    Handlebars.registerHelper('subscriptionIsReady', function() {
-        return Session.get('subscriptionIsReady');
+        if ( Time.findOne() ) return Time.findOne();
+        else return false;
     });
 
 }
@@ -40,10 +40,7 @@ if (Meteor.isServer) {
        activeSubscriptions[subscription._session.id] = subscription;
 
        // Push initial time value to client
-       subscription.added('time', 'not_a_random_id', getTime());
-
-       // Trigger subscriber's onReady callback
-       subscription.ready();
+       subscription.added( 'time', 'not_a_random_id', {date: new Date()} );
 
        // Remove the subscription on client disconnect
        subscription.onStop(function() {
@@ -55,17 +52,11 @@ if (Meteor.isServer) {
 
     // Publish new server time to all active subscribers every one second
     Meteor.setInterval(function() {
+        var currentTime = new Date();
         for (var subscriptionID in activeSubscriptions) {
             var subscription = activeSubscriptions[subscriptionID];
-            subscription.changed('time', 'not_a_random_id', getTime());
+            subscription.changed( 'time', 'not_a_random_id', {date: currentTime} );
         }
     }, 1000);
-
-
-    // Generate new server time
-    getTime = function() {
-        var d = new Date();
-        return { hour: d.getHours(), minute: d.getMinutes(), second: d.getSeconds() };
-    };
 
 }
